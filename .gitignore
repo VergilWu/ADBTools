@@ -1,0 +1,13 @@
+__pycache__
+.idea
+.DS_Store
+.history
+venv
+log
+logcat
+screen
+test
+*.pyc
+build/
+dist/
+main.spec
