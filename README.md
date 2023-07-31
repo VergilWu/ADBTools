@@ -13,18 +13,13 @@
 # 安装
 ```shell
 # 工具类
-$ pip install adbutils
-$ pip install tidevice
-
-# pyqt
-$ pip3 install QtAwesome  # 用来显示字体图标
-$ pip3 install PyQtWebEngine  # 实现窗口内置浏览器页面，相关功能已经删除，不用下载
-$ pip3 install pyinstaller  # 打包
+$ pip install -r requirements.txt
+$ pip install pyinstaller  # 打包
 ```
 
 # 打包
 
-使用 pyinstaller 打包，在程序入口下，对 main.py 进行打包
+1. 使用 pyinstaller 打包，在程序入口下，对 main.py 进行打包
 
 ```shell
 $ pyinstaller -F -w main.py
@@ -44,10 +39,11 @@ main.spec
 ```
 可以将项目中的其他文件(比如图片、.sql数据库文件、yaml配置文件等等)，按原来的目录结构复制到dist文件夹中(Mac可能在dist文件夹下有一个以filename命名的文件夹，所有信息在filename文件夹中)，如果有缺少文件会导致项目打不开
 
-
+2. 生成spec文件打包
 ```shell
-# 直接使用这个命令，配置了 icon 和 APP name
-$ pyinstaller -F -w main.spec
+$ pyi-makespec -Fw main.py
+# 编辑main.spec文件a字段中hiddenimports=['config', 'gui', 'utils']
+$ pyinstaller main.spec
 ```
 
 # 问题记录
@@ -85,6 +81,3 @@ self.website_button_1.clicked.connect(lambda: self.__func.open_url(self.__url_cf
 什么是 ```lambda``` 表达式？
 
 lambda的一般形式是关键字lambda后面跟一个或多个参数，紧跟一个冒号，以后是一个表达式。lambda是一个表达式而不是一个语句。它能够出现在Python语法不允许def出现的地方。作为表达式，lambda返回一个值（即一个新的函数）。lambda用来编写简单的函数，而def用来处理更强大的任务。
-
-
-
