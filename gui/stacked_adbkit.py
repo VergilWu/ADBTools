@@ -1,7 +1,9 @@
 # -*- coding:utf-8 -*-
 import os
 import logging
+import subprocess
 import threading
+from tkinter import Tk
 import pyperclip
 import functools
 
@@ -119,25 +121,29 @@ class AdbKitPage:
         # 安装APK
         self.btn_install = QPushButton('安装应用')
         self.btn_choose_apk = QPushButton('选择APK')
+        self.btn_choose_dir = QPushButton('选择文件夹')
         self.btn_qrcode = QPushButton('生成二维码')
         self.edit_apk_path = QLineEdit()
 
         self.edit_apk_path.setPlaceholderText('请粘贴安装包下载链接 或 选择路径～')
         self.edit_apk_path.setStyleSheet(qss_cfg.TEXT_EDIT_STYLE)
-        self.edit_apk_path.setFixedSize(400, 25)
+        self.edit_apk_path.setFixedSize(300, 25)
 
         self.btn_install.setToolTip('复制需要安装的「 APK URL 」点击文本框。\n安装过程见IDE内的 DEBUG 日志。')
         self.btn_choose_apk.setFixedSize(90, 20)
+        self.btn_choose_dir.setFixedSize(90, 20)
         self.btn_qrcode.setFixedSize(100, 20)
 
         self.btn_install.setStyleSheet(qss_cfg.BTN_COLOR_GREEN)
         self.btn_choose_apk.setStyleSheet(qss_cfg.BTN_COLOR_YELLOW)
+        self.btn_choose_dir.setStyleSheet(qss_cfg.BTN_COLOR_YELLOW)
         self.btn_qrcode.setStyleSheet(qss_cfg.BTN_COLOR_YELLOW)
 
         layout_01 = QHBoxLayout()
         layout_01.addWidget(self.btn_install)
         layout_01.addWidget(self.edit_apk_path)
         layout_01.addWidget(self.btn_choose_apk)
+        layout_01.addWidget(self.btn_choose_dir)
         layout_01.addWidget(self.btn_qrcode)
         layout_01.addStretch(1)
 
@@ -335,6 +341,7 @@ class AdbKitPage:
         # 安装应用
         self.btn_install.clicked.connect(lambda: self.clicked_btn_install())
         self.btn_choose_apk.clicked.connect(lambda: self.clicked_btn_choose_apk_path())
+        self.btn_choose_dir.clicked.connect(lambda: self.clicked_btn_choose_dir_path())
         self.btn_qrcode.clicked.connect(lambda: self.clicked_btn_qrcode())
 
         # 打开网页
@@ -401,18 +408,21 @@ class AdbKitPage:
             self.dialog.info(output)
 
     def clicked_connect_wifi(self):
-        if self.adb():
-            # 首先获取 LineEdit 写入的值
-            edit_ip_value = self.edit_ip.text()
-            edit_port_value = self.edit_port.text()
-            port = 5555 if not edit_port_value else edit_port_value
+        # 首先获取 LineEdit 写入的值
+        edit_ip_value = self.edit_ip.text()
+        edit_port_value = self.edit_port.text()
+        if edit_ip_value == '...':
+            self.notice.error('请输入IP地址')
+            return
+        port = "5555" if not edit_port_value else edit_port_value
+        # output = self.adb().connect(edit_ip_value, port)
+        process = subprocess.Popen("adb connect %s:%s" % (edit_ip_value, port), shell=True, stdout=subprocess.PIPE)
+        output = process.stdout.read().decode("utf-8")
 
-            output = self.adb().connect(edit_ip_value, port)
-
-            if "Successful" in output:
-                self.clicked_devices_check()
-                self.edit_ip.setText(self.adb().ip())
-            self.notice.info(output)
+        if "connected to %s:%s" % (edit_ip_value, port) in output:
+            self.clicked_devices_check()
+            self.edit_ip.setText(self.adb().ip())
+        self.notice.info(output)
 
     def clicked_server_kill(self):
         output = adb.server_kill()
@@ -456,24 +466,77 @@ class AdbKitPage:
             logging.error('获取 apk 文本框内容失败～ %s' % e)
 
     def clicked_btn_install(self):
-        """点击 安装应用 按钮"""
+        """点击 安装应用 按钮，如果路径为文件则直接安装，如果为文件夹则遍历目录下apk文件"""
         if self.adb() and self.get_apk_path_choose_text():
-            try:
-                t = threading.Thread(
-                    target=self.adb().install,
-                    args=(self.get_apk_path_choose_text(),)
-                )
-                t.start()
-            except Exception as e:
-                self.notice.error(f"安装失败\n{e}")
+            selected_path = self.get_apk_path_choose_text()
+
+            if os.path.isfile(selected_path):
+                self.thread_install_apk(selected_path, "")
+            elif os.path.isdir(selected_path):
+                apk_files = [file for file in os.listdir(selected_path) if file.endswith('.apk')]
+                if len(apk_files) == 1:
+                    self.thread_install_apk(selected_path, apk_files[0])
+                elif len(apk_files) > 1:
+                    self.notice.warn(f"当前目录下存在多个apk文件，请选择一个安装！")
+                    selected_apk = self.show_apk_selection_dialog(apk_files)
+                    if selected_apk:
+                        self.thread_install_apk(selected_path, selected_apk)
+                else:
+                    self.notice.error(f"当前目录下不存在apk文件！")
+            else:
+                self.notice.error(f"路径无效！")
+
+    def thread_install_apk(self, apk_path, apk_files):
+        """安装apk"""
+        try:
+            t = threading.Thread(
+                target=self.adb().install,
+                args=(os.path.join(apk_path, apk_files),)
+            )
+            t.start()
+        except Exception as e:
+            self.notice.error(f"安装失败\n{e}")
+
+    def show_apk_selection_dialog(self, apk_files):
+        """显示apk选择对话框"""
+        selected_apk = None
+
+        # 创建弹窗
+        popup = Tk.TopLevel()
+        popup.title("选择安装包")
+
+        # 添加列表框
+        listbox = Tk.Listbox(popup, selectmode=Tk.SINGLE)
+        listbox.pack(fill=Tk.BOTH, expand=True)
+
+        # 将 apk 文件添加到列表框
+        for apk_file in apk_files:
+            listbox.insert(Tk.END, apk_file)
+
+        def on_ok_button_click():
+            nonlocal selected_apk
+            if listbox.curselection():
+                index = listbox.curselection()[0]
+                selected_apk = listbox.get(index)
+            popup.destroy()
+
+        # 添加按钮
+        ok_button = Tk.Button(popup, text="确定", command=on_ok_button_click)
+        ok_button.pack()
 
     def clicked_btn_choose_apk_path(self):
         """点击 选择APK 按钮，通过 apk 文件选择框 选择安装路径，"""
         # 对话框的文件扩展名过滤器 filter，设置多个文件扩展名过滤，使用双引号隔开；
         # “All Files(*);;PDF Files(*.pdf);;Text Files(*.txt)”
         open_path = QFileDialog()
-        path = open_path.getOpenFileName(filter='APK Files(*.apk);;')
+        path = open_path.getOpenFileName(filter='APK Files(*.apk);;All Files(*)')
         self.edit_apk_path.setText(path[0])
+
+    def clicked_btn_choose_dir_path(self):
+        """点击 选择文件夹 按钮，通过 文件夹 选择安装路径，"""
+        open_path = QFileDialog()
+        path = open_path.getExistingDirectory()
+        self.edit_apk_path.setText(path)
 
     def clicked_btn_qrcode(self):
         """点击生成二维码"""

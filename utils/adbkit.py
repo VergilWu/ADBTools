@@ -113,8 +113,8 @@ class AdbKit:
 
     def set_prop(self, prop: str, value: str) -> None:
         """设置设备属性"""
-        self.adb_device.shell(f"adb shell setprop {prop} {value}")
-    
+        self.adb_device.shell(f"setprop {prop} {value}")
+
     @staticmethod
     def device_list():
         try:
@@ -268,7 +268,8 @@ class AdbKit:
 
     def install(self, apk):
         """安装应用，支持本地路径安装和URL安装"""
-        self.shell(f"python3 -m adbutils -s {self.serial} -i {apk}")
+        # self.shell(f"python3 -m adbutils -s {self.serial} -i {apk}")
+        self.shell(f"adb -s {self.serial} install -s -t {apk}")
 
     def uninstall(self, package):
         """卸载应用"""
@@ -309,8 +310,11 @@ class AdbKit:
         return battery_info
 
     def window_size(self):
-        """获取设备屏幕分辨率"""
-        x, y = self.adb_device.window_size()
+        """获取设备屏幕分辨率， 一些硬件获取不到，返回 0, 0"""
+        try:
+            x, y = self.adb_device.window_size()
+        except:
+            x, y = 0, 0
         return x, y
 
     def qr_code(self, text):
