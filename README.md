@@ -37,12 +37,14 @@ build/
 dist/
 main.spec
 ```
-可以将项目中的其他文件(比如图片、.sql数据库文件、yaml配置文件等等)，按原来的目录结构复制到dist文件夹中(Mac可能在dist文件夹下有一个以filename命名的文件夹，所有信息在filename文件夹中)，如果有缺少文件会导致项目打不开
+
+
 
 2. 生成spec文件打包
 ```shell
-$ pyi-makespec -Fw main.py
+$ pyi-makespec -Fw main.py -i 'ICON_PATH'
 # 编辑main.spec文件a字段中hiddenimports=['config', 'gui', 'utils']
+# 资源文件可以在spec中新增a.datas += [('a.jpg','path','DATA'),('b.jpg','path','DATA')
 $ pyinstaller main.spec
 ```
 

@@ -11,3 +11,4 @@ test
 build/
 dist/
 main.spec
+/images/

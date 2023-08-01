@@ -1,11 +1,10 @@
 # -*- coding:utf-8 -*-
-import os
 import sys
-import qtawesome
 
-from PyQt5.QtWidgets import *
+import qtawesome
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 
 from config import qss_cfg, config
 from gui.right_window import RightStacked

@@ -1,22 +1,21 @@
 # -*- coding:utf-8 -*-
-import os
+import functools
 import logging
+import os
 import subprocess
 import threading
-from tkinter import Tk
-import pyperclip
-import functools
 
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
+import pyperclip
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 from adbutils import adb
 
-from utils.adbkit import AdbKit
-from utils import common
-from utils import systemer
 from config import qss_cfg, config
 from gui.dialog import DiaLog, Notice
+from utils import common
+from utils import systemer
+from utils.adbkit import AdbKit
 
 
 def check_device(func):
@@ -200,6 +199,35 @@ class AdbKitPage:
         layout_04.addWidget(self.edit_insert_folder)
         layout_04.addStretch(1)
 
+        # 文件传输操作
+        self.btn_pull = QPushButton('拉取文件')
+        self.btn_pull.setToolTip('拉取文件到电脑')
+
+        self.btn_push = QPushButton('推送文件')
+        self.btn_push.setToolTip('推送文件到设备')
+
+        self.edit_device_path = QLineEdit()
+        self.edit_device_path.setFixedSize(150, 25)
+        self.edit_device_path.setStyleSheet(qss_cfg.TEXT_EDIT_STYLE)
+        self.edit_device_path.setPlaceholderText('请输入设备路径')
+
+        self.edit_local_path = QLineEdit()
+        self.edit_local_path.setFixedSize(150, 25)
+        self.edit_local_path.setStyleSheet(qss_cfg.TEXT_EDIT_STYLE)
+        self.edit_local_path.setPlaceholderText('请输入本地路径')
+
+        self.btn_choose_path_transfer = QPushButton('选择本地路径')
+        self.btn_choose_path_transfer.setFixedSize(100, 20)
+        self.btn_choose_path_transfer.setStyleSheet(qss_cfg.BTN_COLOR_YELLOW)
+
+        layout_10 = QHBoxLayout()
+        layout_10.addWidget(self.btn_pull)
+        layout_10.addWidget(self.btn_push)
+        layout_10.addWidget(self.edit_device_path)
+        layout_10.addWidget(self.edit_local_path)
+        layout_10.addWidget(self.btn_choose_path_transfer)
+        layout_10.addStretch(1)
+
         # 动态设置 prop 参数
         self.btn_get_prop = QPushButton('获取prop')
         self.btn_get_prop.setToolTip('获取prop参数')
@@ -297,6 +325,7 @@ class AdbKitPage:
             self.btn_clear_log, self.btn_logcat, self.btn_open_log_path,
             self.btn_screenshot, self.btn_open_screenshot, self.btn_open_screenshot_dir,
             self.btn_open_proxy, self.btn_close_proxy, self.btn_get_prop, self.btn_set_prop,
+            self.btn_pull, self.btn_push,
         ]
         btn_list_2 = [self.btn_reset_app, self.btn_uninstall_app]
         for btn in btn_list:
@@ -316,6 +345,7 @@ class AdbKitPage:
         self.layout.addLayout(layout_01)  # 安装
         self.layout.addLayout(layout_05)  # 获取信息
         self.layout.addLayout(layout_04)  # 删除文件夹
+        self.layout.addLayout(layout_10)  # 文件传输
         self.layout.addLayout(layout_09)  # 设置prop属性
         self.layout.addLayout(layout_02)  # 打开网页
         self.layout.addLayout(layout_03)  # 发送文本
@@ -340,8 +370,8 @@ class AdbKitPage:
 
         # 安装应用
         self.btn_install.clicked.connect(lambda: self.clicked_btn_install())
-        self.btn_choose_apk.clicked.connect(lambda: self.clicked_btn_choose_apk_path())
-        self.btn_choose_dir.clicked.connect(lambda: self.clicked_btn_choose_dir_path())
+        self.btn_choose_apk.clicked.connect(lambda: self.clicked_btn_choose_local_path(True, config.PATH_USE_INSTALL))
+        self.btn_choose_dir.clicked.connect(lambda: self.clicked_btn_choose_local_path(False, config.PATH_USE_INSTALL))
         self.btn_qrcode.clicked.connect(lambda: self.clicked_btn_qrcode())
 
         # 打开网页
@@ -354,6 +384,12 @@ class AdbKitPage:
         self.btn_del_folder.clicked.connect(lambda: self.clicked_btn_del_folder())
         self.btn_delete.clicked.connect(lambda: self.clicked_btn_delete())
         self.btn_insert.clicked.connect(lambda: self.clicked_btn_insert())
+
+        # 文件传输
+        self.btn_pull.clicked.connect(lambda: self.clicked_btn_pull_or_push(True))
+        self.btn_push.clicked.connect(lambda: self.clicked_btn_pull_or_push(False))
+        self.btn_choose_path_transfer.clicked.connect(
+            lambda: self.clicked_btn_choose_local_path(True, config.PATH_USE_TRANSFER))
 
         # 获取/设置prop属性
         self.btn_get_prop.clicked.connect(lambda: self.clicked_btn_get_prop())
@@ -478,59 +514,69 @@ class AdbKitPage:
                     self.thread_install_apk(selected_path, apk_files[0])
                 elif len(apk_files) > 1:
                     self.notice.warn(f"当前目录下存在多个apk文件，请选择一个安装！")
-                    selected_apk = self.show_apk_selection_dialog(apk_files)
-                    if selected_apk:
+                    selected_apk = str(self.show_apk_selection_dialog(apk_files))
+                    if selected_apk != "":
                         self.thread_install_apk(selected_path, selected_apk)
                 else:
                     self.notice.error(f"当前目录下不存在apk文件！")
             else:
                 self.notice.error(f"路径无效！")
 
-    def thread_install_apk(self, apk_path, apk_files):
+    def thread_install_apk(self, apk_path, apk_file):
         """安装apk"""
         try:
             t = threading.Thread(
                 target=self.adb().install,
-                args=(os.path.join(apk_path, apk_files),)
+                args=(os.path.join(apk_path), apk_file)
             )
             t.start()
         except Exception as e:
             self.notice.error(f"安装失败\n{e}")
 
-    def show_apk_selection_dialog(self, apk_files):
+    def show_apk_selection_dialog(self, apk_files) -> str:
         """显示apk选择对话框"""
-        selected_apk = None
+        selected_apk = ""
+        dialog = QDialog()
+        dialog.setWindowTitle("选择安装包")
+        dialog.setWindowFlags(dialog.windowFlags() & ~Qt.WindowContextHelpButtonHint & ~Qt.WindowMinMaxButtonsHint)
+        dialog.setWindowIcon(QIcon('favicon.ico'))
+        dialog.resize(300, 200)
 
-        # 创建弹窗
-        popup = Tk.TopLevel()
-        popup.title("选择安装包")
+        layout = QVBoxLayout(dialog)
 
-        # 添加列表框
-        listbox = Tk.Listbox(popup, selectmode=Tk.SINGLE)
-        listbox.pack(fill=Tk.BOTH, expand=True)
+        combo_box = QComboBox(dialog)
+        layout.addWidget(combo_box)
 
         # 将 apk 文件添加到列表框
         for apk_file in apk_files:
-            listbox.insert(Tk.END, apk_file)
+            combo_box.addItems([apk_file])
+
+        # 添加垂直间距
+        layout.addSpacing(50)
+
+        hbox = QHBoxLayout()
+
+        # 添加左侧空白区域
+        hbox.addStretch(1)
+
+        # 添加按钮
+        ok_button = QPushButton("确定", dialog)
+        ok_button.clicked.connect(lambda: on_ok_button_click())
+        hbox.addWidget(ok_button)
+
+        # 添加右侧空白区域
+        hbox.addStretch(1)
+
+        # 添加水平布局
+        layout.addLayout(hbox)
 
         def on_ok_button_click():
             nonlocal selected_apk
-            if listbox.curselection():
-                index = listbox.curselection()[0]
-                selected_apk = listbox.get(index)
-            popup.destroy()
+            selected_apk = combo_box.currentText()
+            dialog.accept()
 
-        # 添加按钮
-        ok_button = Tk.Button(popup, text="确定", command=on_ok_button_click)
-        ok_button.pack()
-
-    def clicked_btn_choose_apk_path(self):
-        """点击 选择APK 按钮，通过 apk 文件选择框 选择安装路径，"""
-        # 对话框的文件扩展名过滤器 filter，设置多个文件扩展名过滤，使用双引号隔开；
-        # “All Files(*);;PDF Files(*.pdf);;Text Files(*.txt)”
-        open_path = QFileDialog()
-        path = open_path.getOpenFileName(filter='APK Files(*.apk);;All Files(*)')
-        self.edit_apk_path.setText(path[0])
+        dialog.exec_()
+        return selected_apk
 
     def clicked_btn_choose_dir_path(self):
         """点击 选择文件夹 按钮，通过 文件夹 选择安装路径，"""
@@ -580,6 +626,44 @@ class AdbKitPage:
             self.adb().delete_folder(folder_name)
             logging.info(f"删除文件夹：{folder_name}")
             self.notice.info(f"删除文件夹成功：{folder_name}")
+
+    def clicked_btn_pull_or_push(self, is_pull: bool):
+        """文件传输操作"""
+        if self.adb():
+            device_path = self.edit_device_path.text()
+            local_path = self.edit_local_path.text()
+            if device_path and local_path:
+                if is_pull:
+                    self.adb().pull(device_path, local_path)
+                    logging.info(f"拉取文件：{device_path} -> {local_path}")
+                    self.notice.info(f"拉取文件成功：{device_path} -> {local_path}")
+                else:
+                    self.adb().push(local_path, device_path)
+                    logging.info(f"推送文件：{local_path} -> {device_path}")
+                    self.notice.info(f"推送文件成功：{local_path} -> {device_path}")
+            else:
+                logging.info("请检查路径后再试...")
+                self.notice.warn('路径不能为空的呀～')
+                return
+
+    def clicked_btn_choose_local_path(self, is_file: bool, use: str):
+        """点击【选择本地路径】"""
+        open_path = QFileDialog()
+        if is_file:
+            if use == config.PATH_USE_INSTALL:
+                path = open_path.getOpenFileName(filter='APK Files(*.apk);;All Files(*)')
+            elif use == config.PATH_USE_TRANSFER:
+                path = open_path.getOpenFileName(filter='All Files(*)')
+        else:
+            path = open_path.getExistingDirectory()
+
+        if use == config.PATH_USE_INSTALL:
+            if is_file:
+                self.edit_apk_path.setText(path[0])
+            else:
+                self.edit_apk_path.setText(path)
+        elif use == config.PATH_USE_TRANSFER:
+            self.edit_local_path.setText(path)
 
     def clicked_btn_delete(self):
         """删除下拉框内的文件名称数据"""

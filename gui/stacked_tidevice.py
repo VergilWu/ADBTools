@@ -1,18 +1,16 @@
 # -*- coding:utf-8 -*-
-import os
 import logging
+import os
 import threading
 
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 
-from gui.dialog import DiaLog, Notice
-
+from config import qss_cfg, config
+from gui.dialog import Notice
 from utils import common, systemer
 from utils.common import MyThread
 from utils.tidevice import TiDevice
-from config import qss_cfg, config
 
 
 class TiDevicePage:

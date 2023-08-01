@@ -1,8 +1,8 @@
 from PyQt5.QtCore import Qt, QUrl
-from PyQt5.QtGui import QPixmap, QDesktopServices, QFont, QPalette
+from PyQt5.QtGui import QPixmap, QDesktopServices, QFont
 from PyQt5.QtWidgets import *
 
-from config import qss_cfg, config
+from config import config
 from config import qss_cfg
 from gui.dialog import DiaLog, Notice
 from utils.systemer import get_abs_path
@@ -93,6 +93,7 @@ class AboutPage(object):
 
         self.layout_donate = QHBoxLayout()
         self.layout_collapsible_donate = QGroupBox()
+        self.layout_collapsible_donate.setFixedHeight(200)
         self.layout_collapsible_donate.setCheckable(False)
         self.layout_collapsible_donate.setChecked(False)
         self.layout_collapsible_donate.setVisible(False)
@@ -125,14 +126,14 @@ class AboutPage(object):
         self.scroll_layout.addWidget(self.label_desc_donate)
         self.scroll_layout.addWidget(self.btn_show_donate)
         self.scroll_layout.addWidget(self.layout_collapsible_donate)
+        self.scroll_layout.addStretch(1)
 
         self.scroll_layout.setAlignment(Qt.AlignCenter)
 
         # 设置滚动条策略
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
     @staticmethod
     def open_url(url):
         QApplication.setOverrideCursor(Qt.ArrowCursor)

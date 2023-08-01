@@ -42,3 +42,7 @@ THROTTLE_LIST = [
     '400',
     '500',
 ]
+
+# 选取路径的用途
+PATH_USE_INSTALL = 'install'
+PATH_USE_TRANSFER = 'transfer'

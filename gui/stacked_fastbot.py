@@ -1,14 +1,12 @@
-import logging
 import threading
 
-from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+
 from config import qss_cfg, config
 from gui.dialog import DiaLog, Notice
 from gui.stacked_adbkit import AdbKitPage
 from gui.stacked_tidevice import TiDevicePage
-from utils.adbkit import AdbKit
 from utils.fastbot_android import FastbotAndroid
 from utils.tidevice import TiDevice
 

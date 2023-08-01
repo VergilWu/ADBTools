@@ -1,17 +1,17 @@
 # TODO: 提交 pr， wlan_ip() 里面没有做无权限设备获取IP的处理，可以添加上
 
-import re
-import os
-import logging
-import platform
 import datetime
+import functools
+import logging
+import os
+import platform
+import re
 import subprocess
 from random import random
+from time import sleep
 
 import adbutils
-import functools
 from MyQR import myqr
-from time import sleep
 from adbutils import adb
 
 from utils import systemer
@@ -19,6 +19,7 @@ from utils import systemer
 
 def check_device(func):
     """设备检测，判断仅有设备时继续执行"""
+
     @functools.wraps(func)
     def wrapper(*args, **kw):
         device_list = AdbKit.device_list()
@@ -27,6 +28,7 @@ def check_device(func):
             logging.error("没有设备")
             raise RuntimeError("Can't find any android device/emulator")
         return func(*args, **kw)
+
     return wrapper
 
 
@@ -35,6 +37,7 @@ class AdbKit:
     https://github.com/openatx/adbutils
     https://developer.android.com/studio/command-line/adb
     """
+
     def __init__(self, serial=None):
         self.serial = serial
         self.adb = adb
@@ -266,10 +269,12 @@ class AdbKit:
         """输出给定 package 的 APK 的路径"""
         return self.adb_device.shell(f"pm path {package}")
 
-    def install(self, apk):
+    def install(self, apk_path, apk_file):
         """安装应用，支持本地路径安装和URL安装"""
-        # self.shell(f"python3 -m adbutils -s {self.serial} -i {apk}")
-        self.shell(f"adb -s {self.serial} install -s -t {apk}")
+        if apk_file != "":
+            self.adb_device.install(apk_path + "/" + apk_file)
+        else:
+            self.adb_device.install(apk_path)
 
     def uninstall(self, package):
         """卸载应用"""
@@ -393,7 +398,7 @@ class AdbKit:
 
     def click_by_percent(self, x, y):
         """通过比例发送触摸事件"""
-        if 0.0 < x+y < 2.0:
+        if 0.0 < x + y < 2.0:
             wx, wy = self.window_size()
             x *= wx
             y *= wy
@@ -594,6 +599,14 @@ class AdbKit:
         else:
             kill_cmd = 'am force-stop %s' % pkg_name
         return self.shell(kill_cmd)
+
+    def pull(self, remote, local):
+        """从设备拉取文件到本地"""
+        self.adb_device.sync.pull(remote, local)
+
+    def push(self, local, remote):
+        """从本地推送文件到设备"""
+        self.adb_device.sync.push(local, remote)
 
 
 if __name__ == '__main__':
