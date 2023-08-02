@@ -2,6 +2,7 @@
 import functools
 import logging
 import os
+import platform
 import subprocess
 import threading
 
@@ -623,10 +624,13 @@ class AdbKitPage:
         """点击生成二维码"""
         text = self.get_apk_path_choose_text()
         if text:
-            try:
+            system = platform.system()
+            if system == "Windows":
+                os.system(f'start {AdbKit().qr_code(text)}')
+            elif system == "Darwin":
                 os.system(f'open {AdbKit().qr_code(text)}')
-            except Exception:
-                os.system(f'start explorer {AdbKit().qr_code(text)}')
+            else:
+                self.dialog.info(AdbKit().qr_code(text))
         else:
             logging.info("文本为空，不生成二维码！")
             # self.notice.error("文本框内容为空，不生成二维码！")
