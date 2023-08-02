@@ -9,7 +9,7 @@ FASTBOT_PATH = get_abs_path("config/fastbot")
 # 使用 pyinstall 打包，必须使用绝对路径才能显示出图片来
 APP_ICON = get_abs_path("favicon.ico")  # APP ICON
 APP_NAME = "移动测试工具"  # APP 名称
-APP_VERSION = "0.1.0"  # APP 版本
+APP_VERSION = "0.1.1"  # APP 版本
 APP_DESCRIPTION = "用 PyQt5 编写的桌面工具应用程序，封装了移动端测试常用功能（adb、tidevice、fastbot）"  # APP 描述
 
 mkdir(LOGCAT_PATH)

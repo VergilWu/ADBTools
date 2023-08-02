@@ -349,10 +349,10 @@ class AdbKit:
             "com.miui.home",  # 小米桌面
             "com.huawei.android.launcher"  # 华为桌面
         ]
-        current_app = self.adb_device.current_app()
+        current_app = self.adb_device.app_current()
         logging.debug(current_app)
-        package = current_app["package"]
-        activity = current_app["activity"]
+        package = current_app.package
+        activity = current_app.activity
 
         if package in package_black_list:
             logging.info(f"Current package is System APP ==> {package}")

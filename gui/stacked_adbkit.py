@@ -5,7 +5,6 @@ import os
 import subprocess
 import threading
 
-import pyperclip
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -420,71 +419,94 @@ class AdbKitPage:
 
     @check_device
     def adb(self):
-        return AdbKit(self.current_device())
+        try:
+            return AdbKit(self.current_device())
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
+            return None
 
     def current_device(self):
         """获取当前列表选中的设备"""
-        device = self.cmb_device_choose.currentText()
-        # logging.info(f"current device: {None if not device else device}")
-        return device
+        try:
+            device = self.cmb_device_choose.currentText()
+            # logging.info(f"current device: {None if not device else device}")
+            return device
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
+            return None
 
     def clicked_devices_check(self):
         """刷新设备列表"""
-        devices_list = AdbKit.device_list()
-        self.cmb_device_choose.clear()
-        self.cmb_device_choose.addItems(devices_list)
-        self.cmb_device_choose.setCurrentIndex(0)
-        logging.info(f"Device checking... Now device list: {devices_list}")
-        # self.dialog.info(f"Now device list: \n{devices_list}")
+        try:
+            devices_list = AdbKit.device_list()
+            self.cmb_device_choose.clear()
+            self.cmb_device_choose.addItems(devices_list)
+            self.cmb_device_choose.setCurrentIndex(0)
+            logging.info(f"Device checking... Now device list: {devices_list}")
+            # self.dialog.info(f"Now device list: \n{devices_list}")
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_get_device_info(self):
         """获取设备信息"""
-        if self.adb():
-            output = self.adb().device_info_complete()
-            self.dialog.info(output)
+        try:
+            if self.adb():
+                output = self.adb().device_info_complete()
+                self.dialog.info(output)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_connect_wifi(self):
         # 首先获取 LineEdit 写入的值
-        edit_ip_value = self.edit_ip.text()
-        edit_port_value = self.edit_port.text()
-        if edit_ip_value == '...':
-            self.notice.error('请输入IP地址')
-            return
-        port = "5555" if not edit_port_value else edit_port_value
-        # output = self.adb().connect(edit_ip_value, port)
-        process = subprocess.Popen("adb connect %s:%s" % (edit_ip_value, port), shell=True, stdout=subprocess.PIPE)
-        output = process.stdout.read().decode("utf-8")
+        try:
+            edit_ip_value = self.edit_ip.text()
+            edit_port_value = self.edit_port.text()
+            if edit_ip_value == '...':
+                self.notice.error('请输入IP地址')
+                return
+            port = "5555" if not edit_port_value else edit_port_value
+            # output = self.adb().connect(edit_ip_value, port)
+            process = subprocess.Popen("adb connect %s:%s" % (edit_ip_value, port), shell=True, stdout=subprocess.PIPE)
+            output = process.stdout.read().decode("utf-8")
 
-        if "connected to %s:%s" % (edit_ip_value, port) in output:
-            self.clicked_devices_check()
-            self.edit_ip.setText(self.adb().ip())
-        self.notice.info(output)
+            if "connected to %s:%s" % (edit_ip_value, port) in output:
+                self.clicked_devices_check()
+                self.edit_ip.setText(self.adb().ip())
+            self.notice.info(output)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_server_kill(self):
-        output = adb.server_kill()
-        self.notice.info(f"success: adb server killed.")
+        try:
+            output = adb.server_kill()
+            self.notice.info(f"success: adb server killed.")
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_open_proxy(self):
-        content = self.edit_hostname_port.text().strip()
-        host, port = content.split(":") if content else (common.get_pc_ip(), 8888)
+        try:
+            content = self.edit_hostname_port.text().strip()
+            host, port = content.split(":") if content else (common.get_pc_ip(), 8888)
 
-        if self.adb():
-            self.adb().open_proxy(host, port)
+            if self.adb():
+                self.adb().open_proxy(host, port)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_close_proxy(self):
-        if self.adb():
-            self.adb().close_proxy()
-
-    def paste_apk_url(self):
-        """在文本框内粘贴剪切板的内容
-        TODO：想实现点击文本框，直接自动粘贴剪切版的内容（点击文本框的信号获取处理不回，暂时搁置）
-        """
         try:
-            url = pyperclip.paste()
-            logging.info(f"剪贴板内容为：{url}")
-            self.edit_apk_path.setText(url)
+            if self.adb():
+                self.adb().close_proxy()
         except Exception as e:
-            logging.info('The shear plate is empty! %s' % e)
+            logging.error(e)
+            self.dialog.error(e)
 
     def get_apk_path_choose_text(self):
         """获取安装apk文本框的内容"""
@@ -503,24 +525,28 @@ class AdbKitPage:
 
     def clicked_btn_install(self):
         """点击 安装应用 按钮，如果路径为文件则直接安装，如果为文件夹则遍历目录下apk文件"""
-        if self.adb() and self.get_apk_path_choose_text():
-            selected_path = self.get_apk_path_choose_text()
+        try:
+            if self.adb() and self.get_apk_path_choose_text():
+                selected_path = self.get_apk_path_choose_text()
 
-            if os.path.isfile(selected_path):
-                self.thread_install_apk(selected_path, "")
-            elif os.path.isdir(selected_path):
-                apk_files = [file for file in os.listdir(selected_path) if file.endswith('.apk')]
-                if len(apk_files) == 1:
-                    self.thread_install_apk(selected_path, apk_files[0])
-                elif len(apk_files) > 1:
-                    self.notice.warn(f"当前目录下存在多个apk文件，请选择一个安装！")
-                    selected_apk = str(self.show_apk_selection_dialog(apk_files))
-                    if selected_apk != "":
-                        self.thread_install_apk(selected_path, selected_apk)
+                if os.path.isfile(selected_path):
+                    self.thread_install_apk(selected_path, "")
+                elif os.path.isdir(selected_path):
+                    apk_files = [file for file in os.listdir(selected_path) if file.endswith('.apk')]
+                    if len(apk_files) == 1:
+                        self.thread_install_apk(selected_path, apk_files[0])
+                    elif len(apk_files) > 1:
+                        self.notice.warn(f"当前目录下存在多个apk文件，请选择一个安装！")
+                        selected_apk = str(self.show_apk_selection_dialog(apk_files))
+                        if selected_apk != "":
+                            self.thread_install_apk(selected_path, selected_apk)
+                    else:
+                        self.notice.error(f"当前目录下不存在apk文件！")
                 else:
-                    self.notice.error(f"当前目录下不存在apk文件！")
-            else:
-                self.notice.error(f"路径无效！")
+                    self.notice.error(f"路径无效！")
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def thread_install_apk(self, apk_path, apk_file):
         """安装apk"""
@@ -535,54 +561,63 @@ class AdbKitPage:
 
     def show_apk_selection_dialog(self, apk_files) -> str:
         """显示apk选择对话框"""
-        selected_apk = ""
-        dialog = QDialog()
-        dialog.setWindowTitle("选择安装包")
-        dialog.setWindowFlags(dialog.windowFlags() & ~Qt.WindowContextHelpButtonHint & ~Qt.WindowMinMaxButtonsHint)
-        dialog.setWindowIcon(QIcon('favicon.ico'))
-        dialog.resize(300, 200)
+        try:
+            selected_apk = ""
+            dialog = QDialog()
+            dialog.setWindowTitle("选择安装包")
+            dialog.setWindowFlags(dialog.windowFlags() & ~Qt.WindowContextHelpButtonHint & ~Qt.WindowMinMaxButtonsHint)
+            dialog.setWindowIcon(QIcon('favicon.ico'))
+            dialog.resize(300, 200)
 
-        layout = QVBoxLayout(dialog)
+            layout = QVBoxLayout(dialog)
 
-        combo_box = QComboBox(dialog)
-        layout.addWidget(combo_box)
+            combo_box = QComboBox(dialog)
+            layout.addWidget(combo_box)
 
-        # 将 apk 文件添加到列表框
-        for apk_file in apk_files:
-            combo_box.addItems([apk_file])
+            # 将 apk 文件添加到列表框
+            for apk_file in apk_files:
+                combo_box.addItems([apk_file])
 
-        # 添加垂直间距
-        layout.addSpacing(50)
+            # 添加垂直间距
+            layout.addSpacing(50)
 
-        hbox = QHBoxLayout()
+            hbox = QHBoxLayout()
 
-        # 添加左侧空白区域
-        hbox.addStretch(1)
+            # 添加左侧空白区域
+            hbox.addStretch(1)
 
-        # 添加按钮
-        ok_button = QPushButton("确定", dialog)
-        ok_button.clicked.connect(lambda: on_ok_button_click())
-        hbox.addWidget(ok_button)
+            # 添加按钮
+            ok_button = QPushButton("确定", dialog)
+            ok_button.clicked.connect(lambda: on_ok_button_click())
+            hbox.addWidget(ok_button)
 
-        # 添加右侧空白区域
-        hbox.addStretch(1)
+            # 添加右侧空白区域
+            hbox.addStretch(1)
 
-        # 添加水平布局
-        layout.addLayout(hbox)
+            # 添加水平布局
+            layout.addLayout(hbox)
 
-        def on_ok_button_click():
-            nonlocal selected_apk
-            selected_apk = combo_box.currentText()
-            dialog.accept()
+            def on_ok_button_click():
+                nonlocal selected_apk
+                selected_apk = combo_box.currentText()
+                dialog.accept()
 
-        dialog.exec_()
-        return selected_apk
+            dialog.exec_()
+            return selected_apk
+
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_choose_dir_path(self):
         """点击 选择文件夹 按钮，通过 文件夹 选择安装路径，"""
-        open_path = QFileDialog()
-        path = open_path.getExistingDirectory()
-        self.edit_apk_path.setText(path)
+        try:
+            open_path = QFileDialog()
+            path = open_path.getExistingDirectory()
+            self.edit_apk_path.setText(path)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_qrcode(self):
         """点击生成二维码"""
@@ -598,131 +633,175 @@ class AdbKitPage:
 
     def clicked_btn_open_browser(self):
         """点击【打开网页】"""
-        if self.adb():
-            url = self.edit_open_url.text()
-            logging.info(f"当前输入框内链接为：{None if not url else url}")
-            if not url:
-                logging.info("打开网页：链接为空，请输入后再试...")
-                self.notice.error('不给链接怎么打的开呀～')
-                return
-            # self.adb().start_web_page(url)
-            self.adb().adb_device.open_browser(url)
+        try:
+            if self.adb():
+                url = self.edit_open_url.text()
+                logging.info(f"当前输入框内链接为：{None if not url else url}")
+                if not url:
+                    logging.info("打开网页：链接为空，请输入后再试...")
+                    self.notice.error('不给链接怎么打的开呀～')
+                    return
+                # self.adb().start_web_page(url)
+                self.adb().adb_device.open_browser(url)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_send_text(self):
         """点击【发送文本】"""
-        if self.adb():
-            text = self.edit_send_text.text().strip()
-            if not text:
-                logging.info("输入文本：文本为空，请输入后再试...")
-                self.notice.warn('文本框得有内容的呀～')
-                return
-            logging.info(f"当前文本输入框内容为：{text}")
-            self.adb().adb_device.send_keys(text)
+        try:
+            if self.adb():
+                text = self.edit_send_text.text().strip()
+                if not text:
+                    logging.info("输入文本：文本为空，请输入后再试...")
+                    self.notice.warn('文本框得有内容的呀～')
+                    return
+                logging.info(f"当前文本输入框内容为：{text}")
+                self.adb().adb_device.send_keys(text)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_del_folder(self):
         """点击【删除文件夹】"""
-        if self.adb():
-            folder_name = self.combox_choose_folder.currentText()
-            self.adb().delete_folder(folder_name)
-            logging.info(f"删除文件夹：{folder_name}")
-            self.notice.info(f"删除文件夹成功：{folder_name}")
+        try:
+            if self.adb():
+                folder_name = self.combox_choose_folder.currentText()
+                self.adb().delete_folder(folder_name)
+                logging.info(f"删除文件夹：{folder_name}")
+                self.notice.info(f"删除文件夹成功：{folder_name}")
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_pull_or_push(self, is_pull: bool):
         """文件传输操作"""
-        if self.adb():
-            device_path = self.edit_device_path.text()
-            local_path = self.edit_local_path.text()
-            if device_path and local_path:
-                if is_pull:
-                    self.adb().pull(device_path, local_path)
-                    logging.info(f"拉取文件：{device_path} -> {local_path}")
-                    self.notice.info(f"拉取文件成功：{device_path} -> {local_path}")
+        try:
+            if self.adb():
+                device_path = self.edit_device_path.text()
+                local_path = self.edit_local_path.text()
+                if device_path and local_path:
+                    if is_pull:
+                        self.adb().pull(device_path, local_path)
+                        logging.info(f"拉取文件：{device_path} -> {local_path}")
+                        self.notice.info(f"拉取文件成功：{device_path} -> {local_path}")
+                    else:
+                        self.adb().push(local_path, device_path)
+                        logging.info(f"推送文件：{local_path} -> {device_path}")
+                        self.notice.info(f"推送文件成功：{local_path} -> {device_path}")
                 else:
-                    self.adb().push(local_path, device_path)
-                    logging.info(f"推送文件：{local_path} -> {device_path}")
-                    self.notice.info(f"推送文件成功：{local_path} -> {device_path}")
-            else:
-                logging.info("请检查路径后再试...")
-                self.notice.warn('路径不能为空的呀～')
-                return
+                    logging.info("请检查路径后再试...")
+                    self.notice.warn('路径不能为空的呀～')
+                    return
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_choose_local_path(self, is_file: bool, use: str):
         """点击【选择本地路径】"""
-        open_path = QFileDialog()
-        if is_file:
-            if use == config.PATH_USE_INSTALL:
-                path = open_path.getOpenFileName(filter='APK Files(*.apk);;All Files(*)')
-            elif use == config.PATH_USE_TRANSFER:
-                path = open_path.getOpenFileName(filter='All Files(*)')
-        else:
-            path = open_path.getExistingDirectory()
-
-        if use == config.PATH_USE_INSTALL:
+        try:
+            open_path = QFileDialog()
             if is_file:
-                self.edit_apk_path.setText(path[0])
+                if use == config.PATH_USE_INSTALL:
+                    path = open_path.getOpenFileName(filter='APK Files(*.apk);;All Files(*)')
+                elif use == config.PATH_USE_TRANSFER:
+                    path = open_path.getOpenFileName(filter='All Files(*)')
             else:
-                self.edit_apk_path.setText(path)
-        elif use == config.PATH_USE_TRANSFER:
-            self.edit_local_path.setText(path)
+                path = open_path.getExistingDirectory()
+
+            if use == config.PATH_USE_INSTALL:
+                if is_file:
+                    self.edit_apk_path.setText(path[0])
+                else:
+                    self.edit_apk_path.setText(path)
+            elif use == config.PATH_USE_TRANSFER:
+                self.edit_local_path.setText(path)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_delete(self):
         """删除下拉框内的文件名称数据"""
-        folder_name = self.combox_choose_folder.currentText()
-        config.DEL_FOLDER_NAME.remove(folder_name)
-        self.combox_choose_folder.clear()
-        self.combox_choose_folder.addItems(config.DEL_FOLDER_NAME)
-        logging.info(f"Delete folder name：{folder_name}")
+        try:
+            folder_name = self.combox_choose_folder.currentText()
+            config.DEL_FOLDER_NAME.remove(folder_name)
+            self.combox_choose_folder.clear()
+            self.combox_choose_folder.addItems(config.DEL_FOLDER_NAME)
+            logging.info(f"Delete folder name：{folder_name}")
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_insert(self):
         """增加下拉框内的文件名称数据"""
-        folder_name = self.edit_insert_folder.text()
-        config.DEL_FOLDER_NAME.append(folder_name)
-        self.combox_choose_folder.clear()
-        self.combox_choose_folder.addItems(config.DEL_FOLDER_NAME)
-        logging.info(f"Insert folder name：{folder_name}")
+        try:
+            folder_name = self.edit_insert_folder.text()
+            config.DEL_FOLDER_NAME.append(folder_name)
+            self.combox_choose_folder.clear()
+            self.combox_choose_folder.addItems(config.DEL_FOLDER_NAME)
+            logging.info(f"Insert folder name：{folder_name}")
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_get_prop(self):
         """点击【获取当前prop信息】"""
-        if self.adb():
-            prop_key = self.combox_choose_prop_key.currentText()
-            prop_value = self.adb().get_prop(prop_key)
-            self.edit_prop_value.setText(prop_value)
-            output = f"当前prop信息：\n{prop_key}={prop_value}"
-            logging.info(f"Get Prop: {prop_key}\n{prop_value}")
-            self.notice.success(output)
+        try:
+            if self.adb():
+                prop_key = self.combox_choose_prop_key.currentText()
+                prop_value = self.adb().get_prop(prop_key)
+                self.edit_prop_value.setText(prop_value)
+                output = f"当前prop信息：\n{prop_key}={prop_value}"
+                logging.info(f"Get Prop: {prop_key}\n{prop_value}")
+                self.notice.success(output)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_set_prop(self):
         """点击【设置prop信息】"""
-        if self.adb():
-            prop_key = self.combox_choose_prop_key.currentText()
-            prop_value = self.edit_prop_value.text()
-            if not prop_value:
-                logging.info(f"获取prop值失败，prop值不能为空！")
-                self.notice.error("prop值不能为空！")
-                return
-            self.adb().set_prop(prop_key, prop_value)
-            output = f"设置prop信息成功，重启生效：\n{prop_key}: {prop_value}"
-            logging.info(f"Set Prop: {prop_key}: {prop_value}")
-            self.notice.success(output)
+        try:
+            if self.adb():
+                prop_key = self.combox_choose_prop_key.currentText()
+                prop_value = self.edit_prop_value.text()
+                if not prop_value:
+                    logging.info(f"获取prop值失败，prop值不能为空！")
+                    self.notice.error("prop值不能为空！")
+                    return
+                self.adb().set_prop(prop_key, prop_value)
+                output = f"设置prop信息成功，重启生效：\n{prop_key}: {prop_value}"
+                logging.info(f"Set Prop: {prop_key}: {prop_value}")
+                self.notice.success(output)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_get_pkg_info(self):
         """点击【获取当前包信息】"""
-        if self.adb():
-            info_dict = self.adb().current_app_info()
-            output = f"版本名: {info_dict['version_name']}\n" \
-                     f"版本号: {info_dict['version_code']}\n\n" \
-                     f"首次安装时间: {info_dict['first_install_time']}\n" \
-                     f"最后更新时间: {info_dict['last_update_time']}"
-            logging.info(f"Get Package Info...")
-            self.dialog.info(output)
+        try:
+            if self.adb():
+                info_dict = self.adb().current_app_info()
+                output = f"版本名: {info_dict['version_name']}\n" \
+                         f"版本号: {info_dict['version_code']}\n\n" \
+                         f"首次安装时间: {info_dict['first_install_time']}\n" \
+                         f"最后更新时间: {info_dict['last_update_time']}"
+                logging.info(f"Get Package Info...")
+                self.dialog.info(output, "当前包信息")
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_get_package_name(self):
         """点击【获取当前包名和activity】"""
-        if self.adb():
-            current_app = self.adb().current_app()
-            activity = f"{current_app[0]}/{current_app[-1]}"
-            logging.info(f"Activity ==> {activity}")
-            self.dialog.info(activity)
+        try:
+            if self.adb():
+                current_app = self.adb().current_app()
+                activity = f"{current_app[0]}/{current_app[-1]}"
+                logging.info(f"Activity ==> {activity}")
+                self.dialog.info(activity)
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_reset_current_app(self):
         """点击【重置当前应用】"""
@@ -742,35 +821,55 @@ class AdbKitPage:
 
     def _swipe(self, func):
         """判断是否连续滑动，供调用拉起线程"""
-        if self.check_box.isChecked():
-            while True:
+        try:
+            if self.check_box.isChecked():
+                while True:
+                    func()
+            else:
                 func()
-        else:
-            func()
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_swipe2up(self):
         """点击【上滑】如果勾选框为勾选状态，则连续上滑"""
-        if self.adb():
-            self.t = threading.Thread(target=self._swipe, args=(self.adb().swipe_to_up,))
-            self.t.start()
+        try:
+            if self.adb():
+                self.t = threading.Thread(target=self._swipe, args=(self.adb().swipe_to_up,))
+                self.t.start()
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_swipe2down(self):
         """点击【下拉】如果勾选框为勾选状态，则连续下拉"""
-        if self.adb():
-            self.t = threading.Thread(target=self._swipe, args=(self.adb().swipe_to_down,))
-            self.t.start()
+        try:
+            if self.adb():
+                self.t = threading.Thread(target=self._swipe, args=(self.adb().swipe_to_down,))
+                self.t.start()
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_swipe2left(self):
         """点击【左滑】如果勾选框为勾选状态，则连续下拉"""
-        if self.adb():
-            self.t = threading.Thread(target=self._swipe, args=(self.adb().swipe_to_left,))
-            self.t.start()
+        try:
+            if self.adb():
+                self.t = threading.Thread(target=self._swipe, args=(self.adb().swipe_to_left,))
+                self.t.start()
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_swipe2right(self):
         """点击【左滑】如果勾选框为勾选状态，则连续下拉"""
-        if self.adb():
-            self.t = threading.Thread(target=self._swipe, args=(self.adb().swipe_to_right,))
-            self.t.start()
+        try:
+            if self.adb():
+                self.t = threading.Thread(target=self._swipe, args=(self.adb().swipe_to_right,))
+                self.t.start()
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_swipe_stop(self):
         """点击【停止】结束连续滑动"""
@@ -784,17 +883,25 @@ class AdbKitPage:
 
     def clicked_btn_logcat_c(self):
         """logcat -c"""
-        if self.adb():
-            self.adb().logcat_c()
+        try:
+            if self.adb():
+                self.adb().logcat_c()
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_logcat(self):
         """获取日志"""
-        log_path = config.LOGCAT_PATH
-        # filename = self.adb().gen_file_name("log")
-        # file_path = os.path.join(log_path, filename)
-        # self.adb().logcat(file_path)
-        if self.adb():
-            self.edit_logcat_filename.setText(self.adb().dump_crash_log(log_path))
+        try:
+            log_path = config.LOGCAT_PATH
+            # filename = self.adb().gen_file_name("log")
+            # file_path = os.path.join(log_path, filename)
+            # self.adb().logcat(file_path)
+            if self.adb():
+                self.edit_logcat_filename.setText(self.adb().dump_crash_log(log_path))
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_open_log_path(self):
         """打开log路径"""
@@ -803,17 +910,25 @@ class AdbKitPage:
 
     def clicked_btn_screenshot(self):
         """截图"""
-        if self.adb():
-            t = threading.Thread(target=self.adb().screenshot, args=(config.SCREEN_PATH,))
-            t.start()
-            t.join()
-            self.notice.info('截图完成')
+        try:
+            if self.adb():
+                t = threading.Thread(target=self.adb().screenshot, args=(config.SCREEN_PATH,))
+                t.start()
+                t.join()
+                self.notice.info('截图完成')
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_open_screenshot_path(self):
         """打开截图"""
-        filename = systemer.get_latest_file(config.SCREEN_PATH)
-        if not systemer.open_path(filename):
-            self.notice.warn("打开失败，当前目录为空！")
+        try:
+            filename = systemer.get_latest_file(config.SCREEN_PATH)
+            if not systemer.open_path(filename):
+                self.notice.warn("打开失败，当前目录为空！")
+        except Exception as e:
+            logging.error(e)
+            self.dialog.error(e)
 
     def clicked_btn_open_screenshot_dir(self):
         """打开截图目录"""
