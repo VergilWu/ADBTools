@@ -15,6 +15,7 @@ from MyQR import myqr
 from adbutils import adb
 
 from utils import systemer
+from utils.httpserver import HttpServerThread
 
 
 def check_device(func):
@@ -325,6 +326,18 @@ class AdbKit:
     def qr_code(self, text):
         """生成二维码, pip3 install MyQR"""
         # TODO：支持本地路径可以内网访问 ，地址为：http://192.168.125.81:8000/path
+        # 已经支持本地路径，但是需要开启一个 http 服务而且只能提供文件所在目录的文件列表，不能提供文件的下载
+
+        if os.path.isfile(text):
+            text = os.path.dirname(text)
+            logging.info(f"用户选择的是一个文件，转换成它所在的目录：{text}")
+
+        if any(text.startswith(prefix) for prefix in ["C:", "D:", "E:", "F:", "G:", "/"]):
+            http_server_thread = HttpServerThread(port=80, bind=self.get_local_ip(), directory=text)
+            http_server_thread.start()
+
+            text = f"http://{text}/"
+
         qr_path = systemer.get_abs_path("log", "qr_code.jpg")
         logging.info(f"二维码路径：{qr_path}")
         myqr.run(
@@ -334,6 +347,26 @@ class AdbKit:
             save_name=qr_path,
         )
         return qr_path
+
+    def get_local_ip(self):
+        system = platform.system()
+        if system == "Windows":
+            ip_process = subprocess.Popen(["ipconfig"], stdout=subprocess.PIPE)
+            output = ip_process.communicate()[0].decode("gbk")  # 使用 gbk 编码解码
+            ip_lines = output.split("\n")
+            for line in ip_lines:
+                if "IPv4 地址" in line:
+                    ip = line.split(":")[1].strip()
+                    return ip
+        elif system == "Darwin":
+            ip_process = subprocess.Popen(["ifconfig"], stdout=subprocess.PIPE)
+            output = ip_process.communicate()[0].decode("utf-8")  # 使用 utf-8 编码解码
+            ip_lines = output.split("\n")
+            for line in ip_lines:
+                if "inet " in line and "127.0.0.1" not in line:
+                    ip = line.split(" ")[1]
+                    return ip
+        return None
 
     def reboot(self):
         """重启设备"""
